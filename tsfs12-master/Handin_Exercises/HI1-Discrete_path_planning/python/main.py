@@ -245,6 +245,7 @@ def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     cost_to_come = np.zeros(num_nodes)
     control_to_come = np.zeros((num_nodes, num_controls), dtype=int)
     expanded_nodes = []
+    # expanded = visited
 
     startNode = mission["start"]["id"]
     goalNode = mission["goal"]["id"]
@@ -327,6 +328,7 @@ for w in plan_way_names[:-1]:
 print("Goal: " + plan_way_names[-1])
 
 def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
+    # I think dijkstra is just breadth first with a priority queue
     pass
 
 
