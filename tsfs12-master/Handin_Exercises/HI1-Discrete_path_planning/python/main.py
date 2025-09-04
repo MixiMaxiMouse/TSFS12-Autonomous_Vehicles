@@ -13,7 +13,8 @@ from osm import load_osm_map
 
 
 # Run if you want plots in external windows (needed for manual mission definition)
-# %matplotlib
+%matplotlib qt
+
 
 
 # Run the ipython magic below to activate automated import of modules. Useful if you write code in external .py files.
@@ -42,7 +43,7 @@ def f_next(x):
     return cx.col, np.full(cx.col.shape, np.nan), cx.data
 
 
-# %% Display basic information about map
+# % Display basic information about map
 
 # Print some basic map information
 
@@ -103,8 +104,7 @@ mission = pre_mission[0]  # Use this line if you want to use the predefined miss
 # An easy mission is a mission in the city centre; while a more difficult could be from Vallastaden to Tannefors. Use this to find interesting plans when experimenting.
 #
 # For this to work you need to activate an interactive Matplotlib backend (`%matplotlib`).
-
-"""
+#%%
 _, ax = plt.subplots(num=30, clear=True)
 osm_map.plotmap()
 ax.set_title('Linköping - click in map to define mission')
@@ -125,7 +125,7 @@ print(' to node %d ' % (mission['goal']['id']), end='')
 if mission['goal']['name'] != '':
     print('(' + mission['goal']['name'] + ')', end='')
 print('')
-"""
+
 
 
 # Show mission details
