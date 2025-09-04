@@ -236,8 +236,95 @@ print("Goal: " + plan_way_names[-1])
 
 
 def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
-    pass
+    """Breadth first planner."""
+    t = Timer()
+    t.tic()
 
+    unvis_node = -1
+    previous = np.full(num_nodes, dtype=int, fill_value=unvis_node)
+    cost_to_come = np.zeros(num_nodes)
+    control_to_come = np.zeros((num_nodes, num_controls), dtype=int)
+    expanded_nodes = []
+
+    startNode = mission["start"]["id"]
+    goalNode = mission["goal"]["id"]
+
+    q = FIFO()
+    q.insert(startNode)
+    foundPlan = False
+
+    while not q.IsEmpty():
+        x = q.pop()
+        expanded_nodes.append(x)
+        if x == goalNode:
+            foundPlan = True
+            break
+        neighbours, u, d = f_next(x)
+        for xi, ui, di in zip(neighbours, u, d):
+            if previous[xi] == unvis_node:
+                previous[xi] = x
+                q.insert(xi)
+                cost_to_come[xi] = cost_to_come[x] + di
+                if num_controls > 0:
+                    control_to_come[xi] = ui
+
+    # Recreate the plan by traversing previous from goal node
+    if not foundPlan:
+        return []
+    else:
+        plan = [goalNode]
+        length = cost_to_come[goalNode]
+        control = []
+        while plan[0] != startNode:
+            if num_controls > 0:
+                control.insert(0, control_to_come[plan[0]])
+            plan.insert(0, previous[plan[0]])
+
+        return {
+            "plan": plan,
+            "length": length,
+            "num_expanded_nodes": len(expanded_nodes),
+            "name": "DepthFirst",
+            "time": t.toc(),
+            "control": control,
+            "expanded_nodes": expanded_nodes,
+        }
+
+
+# Make a plan using the ```DepthFirst``` planner
+
+bf_plan = breadth_first(num_nodes, mission, f_next)
+print(
+    f"{df_plan['length']:.1f} m, {df_plan['num_expanded_nodes']} expanded nodes, planning time {df_plan['time'] * 1e3:.1f} msek"
+)
+
+
+# Plot the resulting plan
+
+_, ax = plt.subplots(num=40, clear=True)
+osm_map.plotmap()
+osm_map.plotplan(bf_plan["plan"], "b", label=f"Breadth first ({bf_plan['length']:.1f} m)")
+ax.set_title("Linköping")
+_ = ax.legend()
+
+
+# Plot nodes visited during search
+
+_, ax = plt.subplots(num=41, clear=True)
+osm_map.plotmap()
+osm_map.plotplan(bf_plan["expanded_nodes"], "b.")
+ax.set_ylabel("Latitude")
+ax.set_xlabel("Longitude")
+_ = ax.set_title("Nodes visited during BreadthFirst search")
+
+
+# Names of roads along the plan ...
+
+plan_way_names = osm_map.getplanwaynames(bf_plan["plan"])
+print("Start: ", end="")
+for w in plan_way_names[:-1]:
+    print(w + " -- ", end="")
+print("Goal: " + plan_way_names[-1])
 
 def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     pass
