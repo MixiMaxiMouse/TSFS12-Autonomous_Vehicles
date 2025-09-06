@@ -234,7 +234,7 @@ plot_plan(df_plan,f"Depth first ({df_plan['length']:.1f} m)", "DepthFirst")
 
 # Here, write your code for your planners. Start with the template code for the depth first search and extend.
 
-
+# %% run BreadthFirst planner
 def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     """Breadth first planner."""
     t = Timer()
@@ -291,11 +291,11 @@ def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             "expanded_nodes": expanded_nodes,
         }
 
-
 # Make a plan using the ```Breadthfirst``` planner
-# %% run BreadthFirst planner
 bf_plan = breadth_first(num_nodes, mission, f_next)
 plot_plan(bf_plan,f"Breadth first ({bf_plan['length']:.1f} m)", "BreadthFirst")
+
+# %% run Dijkstra planner
 
 def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     # I think dijkstra is just breadth first with a priority queue
@@ -354,10 +354,10 @@ def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             "expanded_nodes": expanded_nodes,
         }
 
-# %% run Dijkstra planner
 dijkstra_plan = dijkstra(num_nodes, mission, f_next)
 plot_plan(dijkstra_plan,f"Dijkstra ({dijkstra_plan['length']:.1f} m)", "Dijkstra")
 
+# %% run Astar planner
 def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     """astar planner."""
     t = Timer()
@@ -374,7 +374,7 @@ def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     goalNode = mission["goal"]["id"]
 
     q = PriorityQueue()
-    q.insert(startNode, cost_to_go(startNode, goalNode))
+    q.insert(startNode, heuristic(startNode, goalNode))
     foundPlan = False
 
     while not q.IsEmpty():
@@ -388,7 +388,7 @@ def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             if previous[xi] == unvis_node or cost_to_come[x] + di < cost_to_come[xi] :
                 previous[xi] = x
                 cost_to_come[xi] = cost_to_come[x] + di
-                q.insert(xi,cost_to_come[xi] + cost_to_go(xi, goalNode))
+                q.insert(xi,cost_to_come[xi] + heuristic(xi, goalNode))
                 if num_controls > 0:
                     control_to_come[xi] = ui
 
@@ -414,17 +414,7 @@ def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             "expanded_nodes": expanded_nodes,
         }
     
-def cost_to_go(x, xg):
-    p_x = osm_map.nodeposition[x]
-    p_g = osm_map.nodeposition[xg]
-    return latlong_distance(p_x, p_g)
 
-# %% run Astar planner
-astar_plan = astar(num_nodes, mission, f_next, cost_to_go)
-plot_plan(astar_plan,f"Astar({astar_plan['length']:.1f} m)", "Astar")
-
-def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
-    pass
 
 
 # %% Define heuristic for Astar and BestFirst planners
@@ -437,6 +427,69 @@ def cost_to_go(x, xg):
     p_g = osm_map.nodeposition[xg]
     return latlong_distance(p_x, p_g)
 
+astar_plan = astar(num_nodes, mission, f_next, cost_to_go)
+plot_plan(astar_plan,f"Astar({astar_plan['length']:.1f} m)", "Astar")
+
+def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
+    """astar planner."""
+    t = Timer()
+    t.tic()
+
+    unvis_node = -1
+    previous = np.full(num_nodes, dtype=int, fill_value=unvis_node)
+    cost_to_come = np.zeros(num_nodes)
+    control_to_come = np.zeros((num_nodes, num_controls), dtype=int)
+    expanded_nodes = []
+    # expanded = visited
+
+    startNode = mission["start"]["id"]
+    goalNode = mission["goal"]["id"]
+
+    q = PriorityQueue()
+    q.insert(startNode, heuristic(startNode, goalNode))
+    foundPlan = False
+
+    while not q.IsEmpty():
+        x = q.pop()[0]
+        expanded_nodes.append(x)
+        if x == goalNode:
+            foundPlan = True
+            break
+        neighbours, u, d = f_next(x)
+        for xi, ui, di in zip(neighbours, u, d):
+            if previous[xi] == unvis_node or cost_to_come[x] + di < cost_to_come[xi] :
+                previous[xi] = x
+                cost_to_come[xi] = cost_to_come[x] + di
+                q.insert(xi,heuristic(xi, goalNode))
+                if num_controls > 0:
+                    control_to_come[xi] = ui
+
+    # Recreate the plan by traversing previous from goal node
+    if not foundPlan:
+        return []
+    else:
+        plan = [goalNode]
+        length = cost_to_come[goalNode]
+        control = []
+        while plan[0] != startNode:
+            if num_controls > 0:
+                control.insert(0, control_to_come[plan[0]])
+            plan.insert(0, previous[plan[0]])
+
+        return {
+            "plan": plan,
+            "length": length,
+            "num_expanded_nodes": len(expanded_nodes),
+            "name": "bestFirst",
+            "time": t.toc(),
+            "control": control,
+            "expanded_nodes": expanded_nodes,
+        }
+
+# %% run BestFirst planner
+
+best_first_plan = best_first(num_nodes, mission, f_next, cost_to_go)
+plot_plan(best_first_plan,f"Best first ({best_first_plan['length']:.1f} m)", "BestFirst")
 
 # %% Assertions
 
