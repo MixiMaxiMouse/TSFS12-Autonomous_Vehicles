@@ -192,42 +192,42 @@ def depth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
         }
 
 
+def plot_plan(plan,label, title):
+    print(
+    f"{plan['length']:.1f} m, {plan['num_expanded_nodes']} expanded nodes, planning time {plan['time'] * 1e3:.1f} msek"
+    )
+    # Plot the resulting plan
+
+    _, ax = plt.subplots(num=40, clear=True)
+    osm_map.plotmap()
+    osm_map.plotplan(plan["plan"], "b", label=label)
+    ax.set_title("Linköping")
+    _ = ax.legend()
+
+    # Plot nodes visited during search
+
+    _, ax = plt.subplots(num=41, clear=True)
+    osm_map.plotmap()
+    osm_map.plotplan(plan["expanded_nodes"], "b.")
+    ax.set_ylabel("Latitude")
+    ax.set_xlabel("Longitude")
+    _ = ax.set_title(f"Nodes visited during {title} search")
+
+    # Names of roads along the plan ...
+
+    plan_way_names = osm_map.getplanwaynames(plan["plan"])
+    print("Start: ", end="")
+    for w in plan_way_names[:-1]:
+        print(w + " -- ", end="")
+    print("Goal: " + plan_way_names[-1])
+
 # %%# Planning example using the DepthFirst planner
 
 # Make a plan using the ```DepthFirst``` planner
 
 df_plan = depth_first(num_nodes, mission, f_next)
-print(
-    f"{df_plan['length']:.1f} m, {df_plan['num_expanded_nodes']} expanded nodes, planning time {df_plan['time'] * 1e3:.1f} msek"
-)
+plot_plan(df_plan,f"Depth first ({df_plan['length']:.1f} m)", "DepthFirst")
 
-
-# Plot the resulting plan
-
-_, ax = plt.subplots(num=40, clear=True)
-osm_map.plotmap()
-osm_map.plotplan(df_plan["plan"], "b", label=f"Depth first ({df_plan['length']:.1f} m)")
-ax.set_title("Linköping")
-_ = ax.legend()
-
-
-# Plot nodes visited during search
-
-_, ax = plt.subplots(num=41, clear=True)
-osm_map.plotmap()
-osm_map.plotplan(df_plan["expanded_nodes"], "b.")
-ax.set_ylabel("Latitude")
-ax.set_xlabel("Longitude")
-_ = ax.set_title("Nodes visited during DepthFirst search")
-
-
-# Names of roads along the plan ...
-
-plan_way_names = osm_map.getplanwaynames(df_plan["plan"])
-print("Start: ", end="")
-for w in plan_way_names[:-1]:
-    print(w + " -- ", end="")
-print("Goal: " + plan_way_names[-1])
 
 
 # %% Define planners
@@ -285,56 +285,143 @@ def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             "plan": plan,
             "length": length,
             "num_expanded_nodes": len(expanded_nodes),
-            "name": "DepthFirst",
+            "name": "BreadthFirst",
             "time": t.toc(),
             "control": control,
             "expanded_nodes": expanded_nodes,
         }
 
 
-# Make a plan using the ```DepthFirst``` planner
-
+# Make a plan using the ```Breadthfirst``` planner
+# %% run BreadthFirst planner
 bf_plan = breadth_first(num_nodes, mission, f_next)
-print(
-    f"{df_plan['length']:.1f} m, {df_plan['num_expanded_nodes']} expanded nodes, planning time {df_plan['time'] * 1e3:.1f} msek"
-)
-
-
-# Plot the resulting plan
-
-_, ax = plt.subplots(num=40, clear=True)
-osm_map.plotmap()
-osm_map.plotplan(bf_plan["plan"], "b", label=f"Breadth first ({bf_plan['length']:.1f} m)")
-ax.set_title("Linköping")
-_ = ax.legend()
-
-
-# Plot nodes visited during search
-
-_, ax = plt.subplots(num=41, clear=True)
-osm_map.plotmap()
-osm_map.plotplan(bf_plan["expanded_nodes"], "b.")
-ax.set_ylabel("Latitude")
-ax.set_xlabel("Longitude")
-_ = ax.set_title("Nodes visited during BreadthFirst search")
-
-
-# Names of roads along the plan ...
-
-plan_way_names = osm_map.getplanwaynames(bf_plan["plan"])
-print("Start: ", end="")
-for w in plan_way_names[:-1]:
-    print(w + " -- ", end="")
-print("Goal: " + plan_way_names[-1])
+plot_plan(bf_plan,f"Breadth first ({bf_plan['length']:.1f} m)", "BreadthFirst")
 
 def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     # I think dijkstra is just breadth first with a priority queue
-    pass
+    """Dijkstra planner."""
+    t = Timer()
+    t.tic()
 
+    unvis_node = -1
+    previous = np.full(num_nodes, dtype=int, fill_value=unvis_node)
+    cost_to_come = np.zeros(num_nodes)
+    control_to_come = np.zeros((num_nodes, num_controls), dtype=int)
+    expanded_nodes = []
+    # expanded = visited
+
+    startNode = mission["start"]["id"]
+    goalNode = mission["goal"]["id"]
+
+    q = PriorityQueue()
+    q.insert(startNode, 0)
+    foundPlan = False
+
+    while not q.IsEmpty():
+        x = q.pop()[0]
+        expanded_nodes.append(x)
+        if x == goalNode:
+            foundPlan = True
+            break
+        neighbours, u, d = f_next(x)
+        for xi, ui, di in zip(neighbours, u, d):
+            if previous[xi] == unvis_node or cost_to_come[x] + di < cost_to_come[xi]:
+                previous[xi] = x
+                q.insert(xi, di + cost_to_come[x])
+                cost_to_come[xi] = cost_to_come[x] + di
+                if num_controls > 0:
+                    control_to_come[xi] = ui
+
+    # Recreate the plan by traversing previous from goal node
+    if not foundPlan:
+        return []
+    else:
+        plan = [goalNode]
+        length = cost_to_come[goalNode]
+        control = []
+        while plan[0] != startNode:
+            if num_controls > 0:
+                control.insert(0, control_to_come[plan[0]])
+            plan.insert(0, previous[plan[0]])
+
+        return {
+            "plan": plan,
+            "length": length,
+            "num_expanded_nodes": len(expanded_nodes),
+            "name": "Dijkstra",
+            "time": t.toc(),
+            "control": control,
+            "expanded_nodes": expanded_nodes,
+        }
+
+# %% run Dijkstra planner
+dijkstra_plan = dijkstra(num_nodes, mission, f_next)
+plot_plan(dijkstra_plan,f"Dijkstra ({dijkstra_plan['length']:.1f} m)", "Dijkstra")
 
 def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
-    pass
+    """astar planner."""
+    t = Timer()
+    t.tic()
 
+    unvis_node = -1
+    previous = np.full(num_nodes, dtype=int, fill_value=unvis_node)
+    cost_to_come = np.zeros(num_nodes)
+    control_to_come = np.zeros((num_nodes, num_controls), dtype=int)
+    expanded_nodes = []
+    # expanded = visited
+
+    startNode = mission["start"]["id"]
+    goalNode = mission["goal"]["id"]
+
+    q = PriorityQueue()
+    q.insert(startNode, cost_to_go(startNode, goalNode))
+    foundPlan = False
+
+    while not q.IsEmpty():
+        x = q.pop()[0]
+        expanded_nodes.append(x)
+        if x == goalNode:
+            foundPlan = True
+            break
+        neighbours, u, d = f_next(x)
+        for xi, ui, di in zip(neighbours, u, d):
+            if previous[xi] == unvis_node or cost_to_come[x] + di < cost_to_come[xi] :
+                previous[xi] = x
+                cost_to_come[xi] = cost_to_come[x] + di
+                q.insert(xi,cost_to_come[xi] + cost_to_go(xi, goalNode))
+                if num_controls > 0:
+                    control_to_come[xi] = ui
+
+    # Recreate the plan by traversing previous from goal node
+    if not foundPlan:
+        return []
+    else:
+        plan = [goalNode]
+        length = cost_to_come[goalNode]
+        control = []
+        while plan[0] != startNode:
+            if num_controls > 0:
+                control.insert(0, control_to_come[plan[0]])
+            plan.insert(0, previous[plan[0]])
+
+        return {
+            "plan": plan,
+            "length": length,
+            "num_expanded_nodes": len(expanded_nodes),
+            "name": "Astar",
+            "time": t.toc(),
+            "control": control,
+            "expanded_nodes": expanded_nodes,
+        }
+    
+def cost_to_go(x, xg):
+    p_x = osm_map.nodeposition[x]
+    p_g = osm_map.nodeposition[xg]
+    return latlong_distance(p_x, p_g)
+
+# %% run Astar planner
+astar_plan = astar(num_nodes, mission, f_next, cost_to_go)
+plot_plan(astar_plan,f"Astar({astar_plan['length']:.1f} m)", "Astar")
 
 def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     pass
@@ -348,7 +435,7 @@ def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 def cost_to_go(x, xg):
     p_x = osm_map.nodeposition[x]
     p_g = osm_map.nodeposition[xg]
-    return 0.0
+    return latlong_distance(p_x, p_g)
 
 
 # %% Assertions
