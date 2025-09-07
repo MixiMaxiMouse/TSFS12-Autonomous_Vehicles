@@ -97,6 +97,7 @@ pre_mission = [
     {"start": {"id": 3987}, "goal": {"id": 4724}},
     {"start": {"id": 423}, "goal": {"id": 5119}},
 ]
+
 mission = pre_mission[0]  # Use this line if you want to use the predefined missions
 
 
@@ -126,6 +127,7 @@ if mission['goal']['name'] != '':
     print('(' + mission['goal']['name'] + ')', end='')
 print('')
 
+pre_mission.append(mission)  # Add to list of predefined missions
 
 
 # Show mission details
@@ -493,12 +495,14 @@ plot_plan(best_first_plan,f"Best first ({best_first_plan['length']:.1f} m)", "Be
 # %% run AnytimeAstar planner
 def anytime_astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     """Anytime Astar planner."""
-    allowed_time = 5.0 # seconds
+    allowed_time = 50.0 # seconds
     c_factor = 3.0 # initial inflation factor
-    c_decay = 0.5 # inflation factor decay per iteration
+    c_values = []
+    c_decay = 0.05 # inflation factor decay per iteration
     t = Timer()
     Ti = Timer()
     t.tic()
+    out = []
 
     while c_factor > 1.0 and t.toc() < allowed_time:
         iter_time = Ti.tic()
@@ -532,7 +536,7 @@ def anytime_astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
                     q.insert(xi,cost_to_come[xi] + c_factor * heuristic(xi, goalNode))
                     if num_controls > 0:
                         control_to_come[xi] = ui
-
+        c_values.append(c_factor)
         # Recreate the plan by traversing previous from goal node
         if not foundPlan:
             return []
@@ -553,8 +557,9 @@ def anytime_astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
                 "control": control,
                 "expanded_nodes": expanded_nodes,
             }
-            plot_plan(plan_to_plot, f"Anytime Astar ({plan_to_plot['length']:.1f} m)", "AnytimeAstar")
-    return plan_to_plot
+            out.append(plan_to_plot)
+            #plot_plan(plan_to_plot, f"Anytime Astar ({plan_to_plot['length']:.1f} m)", "AnytimeAstar")
+    return out #, c_values
 
 anytime_astar_plan = anytime_astar(num_nodes, mission, f_next, cost_to_go)
 # %% Assertions
@@ -584,6 +589,120 @@ assert abs(res_astar["length"] - 1860.7143) < 1e-2
 
 # %% Investigations using all planners
 
+def get_length_vs_time(planner, num_nodes, f_next, heuristic=None):
+    out = []  # (length, time)
+    for mission in pre_mission:
+        plan = planner(num_nodes, mission, f_next, heuristic)
+        print(
+            f"{planner.__name__:12s}: {plan['length']:8.1f} m, {plan['num_expanded_nodes']:5d} expanded nodes, planning time {plan['time']*1e3:8.1f} msek"
+        )
+        out.append((plan["length"], plan["time"]))
+    return out
 
+def get_time_vs_expanded(planner, num_nodes, f_next, heuristic=None):
+    out = []  # (time, expanded)
+    for mission in pre_mission:
+        plan = planner(num_nodes, mission, f_next, heuristic)
+        if not plan or not isinstance(plan, dict):  # skip if plan is empty or not a dict
+            continue
+        print(
+            f"{planner.__name__:12s}: {plan['length']:8.1f} m, {plan['num_expanded_nodes']:5d} expanded nodes, planning time {plan['time']*1e3:8.1f} msek"
+        )
+        out.append((plan["time"], plan["num_expanded_nodes"]))
+    return out
+
+def plot_length_vs_time(data, title):
+    plt.figure()
+    for i, (planner_name, planner_data) in enumerate(data.items()):
+       
+        planner_data_sorted = sorted(planner_data, key=lambda x: x[0])
+        lengths, times = zip(*planner_data_sorted)
+
+       
+        plt.plot(lengths, times,
+                 label=planner_name,
+                 linewidth=1.)
+
+    plt.xlabel('Plan length [m]')
+    plt.ylabel('Planning time [s]')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def plot_time_vs_expanded(data, title):
+    plt.figure()
+    for i, (planner_name, planner_data) in enumerate(data.items()):
+       
+        planner_data_sorted = sorted(planner_data, key=lambda x: x[0])
+        lengths, times = zip(*planner_data_sorted)
+
+       
+        plt.plot(lengths, times,
+                 label=planner_name,
+                 linewidth=1.)
+
+    plt.xlabel('Planning time [ms]')
+    plt.ylabel('Expanded nodes[#]')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def cycle_len_time():
+    planners = {
+        'DepthFirst': (depth_first, None),
+        'BreadthFirst': (breadth_first, None),
+        'Dijkstra': (dijkstra, None),
+        'BestFirst': (best_first, cost_to_go),
+        'Astar': (astar, cost_to_go),
+        'AnytimeAstar': (anytime_astar, cost_to_go)
+    }
+    data = {}
+    for planner_name, (planner_func, heuristic) in planners.items():
+        print(f'Running planner: {planner_name}')
+        data[planner_name] = get_length_vs_time(planner_func, num_nodes, f_next, heuristic)
+    plot_length_vs_time(data, 'Plan length vs Planning time for different planners')
+
+# %% run len time
+cycle_len_time()
+
+#%% run time vs expanded
+def cycle_time_expanded():
+    planners = {
+        'DepthFirst': (depth_first, None),
+        'BreadthFirst': (breadth_first, None),
+        'Dijkstra': (dijkstra, None),
+        'BestFirst': (best_first, cost_to_go),
+        'Astar': (astar, cost_to_go),
+        'AnytimeAstar': (anytime_astar, cost_to_go)
+    }
+    data = {}
+    for planner_name, (planner_func, heuristic) in planners.items():
+        print(f'Running planner: {planner_name}')
+        data[planner_name] = get_time_vs_expanded(planner_func, num_nodes, f_next, heuristic)
+    plot_time_vs_expanded(data, 'Planing time vs expanded nodes for different planners')
+cycle_time_expanded()
+
+# %% run anytime astar plot
+def plot_anytime_astar(out):
+    out, c_values = out
+    plt.figure()
+    for i, plan in enumerate(out):
+        plt.plot(c_values[i], plan['length'],
+                 'o-',
+                 label=c_values[i],
+                 linewidth=1.)
+
+    plt.xlabel('c')
+    plt.ylabel('plan length [m]')
+    plt.title('Anytime Astar: Plan length for different inflation factors')
+    
+    plt.grid(True)
+    plt.show()
+out = anytime_astar(num_nodes, mission, f_next, cost_to_go)
+plot_anytime_astar(out)
 # %%
 plt.show()
+
+# %%
