@@ -17,7 +17,10 @@ Best First Search
 
 5386.1 m, 283 expanded nodes, planning time 82.5 msek
 Start: Hugo Theorells gata -- Nelly Sachs gata -- Kunskapslänken -- Infanterivägen -- Regementsgatan -- Garnisonsvägen -- Sjukhusvägen -- Lasarettsgatan -- Sankt Larsgatan -- Torkelbergsgatan -- Snickaregatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Kungsbergsgatan -- Goal: Skördegatan
-
+_______________________________________________________________
+A*
+5085.6 m, 3251 expanded nodes, planning time 574.0 msek
+Start: Hugo Theorells gata -- Kunskapslänken -- Lambohovsleden -- Garnisonsrondellen -- Djurgårdsgatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Goal: Stallgatan
 
 ________________________________________________________________
 Dijkstra
