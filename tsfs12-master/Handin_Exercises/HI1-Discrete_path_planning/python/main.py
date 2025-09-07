@@ -635,6 +635,8 @@ def plot_time_vs_expanded(data, title):
     for i, (planner_name, planner_data) in enumerate(data.items()):
        
         planner_data_sorted = sorted(planner_data, key=lambda x: x[0])
+        if not planner_data_sorted:
+            continue
         lengths, times = zip(*planner_data_sorted)
 
        
