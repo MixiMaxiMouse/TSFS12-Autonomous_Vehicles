@@ -198,7 +198,7 @@ def plot_plan(plan,label, title):
     )
     # Plot the resulting plan
 
-    _, ax = plt.subplots(num=40, clear=True)
+    _, ax = plt.subplots()
     osm_map.plotmap()
     osm_map.plotplan(plan["plan"], "b", label=label)
     ax.set_title("Linköping")
@@ -206,7 +206,7 @@ def plot_plan(plan,label, title):
 
     # Plot nodes visited during search
 
-    _, ax = plt.subplots(num=41, clear=True)
+    _, ax = plt.subplots()
     osm_map.plotmap()
     osm_map.plotplan(plan["expanded_nodes"], "b.")
     ax.set_ylabel("Latitude")
@@ -416,22 +416,21 @@ def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     
 
 
-
 # %% Define heuristic for Astar and BestFirst planners
 
 # Define the heuristic for Astar and BestFirst. The ```latlong_distance``` function will be useful.
-
 
 def cost_to_go(x, xg):
     p_x = osm_map.nodeposition[x]
     p_g = osm_map.nodeposition[xg]
     return latlong_distance(p_x, p_g)
 
+
 astar_plan = astar(num_nodes, mission, f_next, cost_to_go)
 plot_plan(astar_plan,f"Astar({astar_plan['length']:.1f} m)", "Astar")
 
 def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
-    """astar planner."""
+    """best first planner."""
     t = Timer()
     t.tic()
 
@@ -491,6 +490,73 @@ def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 best_first_plan = best_first(num_nodes, mission, f_next, cost_to_go)
 plot_plan(best_first_plan,f"Best first ({best_first_plan['length']:.1f} m)", "BestFirst")
 
+# %% run AnytimeAstar planner
+def anytime_astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
+    """Anytime Astar planner."""
+    allowed_time = 5.0 # seconds
+    c_factor = 3.0 # initial inflation factor
+    c_decay = 0.5 # inflation factor decay per iteration
+    t = Timer()
+    Ti = Timer()
+    t.tic()
+
+    while c_factor > 1.0 and t.toc() < allowed_time:
+        iter_time = Ti.tic()
+        c_factor -= c_decay
+        unvis_node = -1
+        previous = np.full(num_nodes, dtype=int, fill_value=unvis_node)
+        cost_to_come = np.zeros(num_nodes)
+        control_to_come = np.zeros((num_nodes, num_controls), dtype=int)
+        expanded_nodes = []
+        # expanded = visited
+
+        startNode = mission["start"]["id"]
+        goalNode = mission["goal"]["id"]
+
+        q = PriorityQueue()
+        q.insert(startNode, c_factor * heuristic(startNode, goalNode)) 
+        foundPlan = False
+
+        while not q.IsEmpty() and t.toc() < allowed_time:
+            x = q.pop()[0]
+            expanded_nodes.append(x)
+            if x == goalNode:
+                foundPlan = True
+                duration = Ti.toc()
+                break
+            neighbours, u, d = f_next(x)
+            for xi, ui, di in zip(neighbours, u, d):
+                if previous[xi] == unvis_node or cost_to_come[x] + di < cost_to_come[xi] :
+                    previous[xi] = x
+                    cost_to_come[xi] = cost_to_come[x] + di
+                    q.insert(xi,cost_to_come[xi] + c_factor * heuristic(xi, goalNode))
+                    if num_controls > 0:
+                        control_to_come[xi] = ui
+
+        # Recreate the plan by traversing previous from goal node
+        if not foundPlan:
+            return []
+        else:
+            plan = [goalNode]
+            length = cost_to_come[goalNode]
+            control = []
+            while plan[0] != startNode:
+                if num_controls > 0:
+                    control.insert(0, control_to_come[plan[0]])
+                plan.insert(0, previous[plan[0]])
+            plan_to_plot = {
+                "plan": plan,
+                "length": length,
+                "num_expanded_nodes": len(expanded_nodes),
+                "name": "AnytimeAstar",
+                "time": duration,
+                "control": control,
+                "expanded_nodes": expanded_nodes,
+            }
+            plot_plan(plan_to_plot, f"Anytime Astar ({plan_to_plot['length']:.1f} m)", "AnytimeAstar")
+    return plan_to_plot
+
+anytime_astar_plan = anytime_astar(num_nodes, mission, f_next, cost_to_go)
 # %% Assertions
 
 # Below are a few of tests on your implementations. Note, just because your implementation passes the tests doesn't mean that your implementations are fully correct. Do not submit a solution if you fail any of these tests!

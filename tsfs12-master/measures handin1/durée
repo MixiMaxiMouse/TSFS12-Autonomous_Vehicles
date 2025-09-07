@@ -1,0 +1,38 @@
+ARA*
+
+5305.9 m, 301 expanded nodes, planning time 67.3 msek
+Start: Hugo Theorells gata -- Nelly Sachs gata -- Kunskapslänken -- Infanterivägen -- Regementsgatan -- Garnisonsvägen -- Sjukhusvägen -- Lasarettsgatan -- Sankt Larsgatan -- Torkelbergsgatan -- Snickaregatan -- Linnégatan -- Hamngatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Goal: Stallgatan
+
+5269.6 m, 306 expanded nodes, planning time 65.8 msek
+Start: Hugo Theorells gata -- Kunskapslänken -- Infanterivägen -- Regementsgatan -- Sjukhusvägen -- Lasarettsgatan -- Sankt Larsgatan -- Torkelbergsgatan -- Snickaregatan -- Linnégatan -- Hamngatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Goal: Stallgatan
+
+5234.7 m, 564 expanded nodes, planning time 91.6 msek
+Start: Hugo Theorells gata -- Kunskapslänken -- Infanterivägen -- Kompanigatan -- Brigadgatan -- Regementsgatan -- Garnisonsvägen -- Sjukhusvägen -- Lasarettsgatan -- Sankt Larsgatan -- Torkelbergsgatan -- Snickaregatan -- Linnégatan -- Hamngatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Goal: Stallgatan
+
+5085.6 m, 3251 expanded nodes, planning time 508.3 msek
+Start: Hugo Theorells gata -- Kunskapslänken -- Lambohovsleden -- Garnisonsrondellen -- Djurgårdsgatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Goal: Stallgatan
+
+______________________________________________________________
+Best First Search
+
+5386.1 m, 283 expanded nodes, planning time 82.5 msek
+Start: Hugo Theorells gata -- Nelly Sachs gata -- Kunskapslänken -- Infanterivägen -- Regementsgatan -- Garnisonsvägen -- Sjukhusvägen -- Lasarettsgatan -- Sankt Larsgatan -- Torkelbergsgatan -- Snickaregatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Kungsbergsgatan -- Goal: Skördegatan
+
+
+________________________________________________________________
+Dijkstra
+
+5085.6 m, 9847 expanded nodes, planning time 1451.0 msek
+Start: Hugo Theorells gata -- Kunskapslänken -- Lambohovsleden -- Garnisonsrondellen -- Djurgårdsgatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Goal: Stallgatan
+
+______________________________________________________________
+Breadth First
+
+5754.1 m, 9101 expanded nodes, planning time 1329.2 msek
+Start: Hugo Theorells gata -- Nelly Sachs gata -- Kunskapslänken -- Johannes Magnus väg -- Stratomtavägen -- Vallarondellen -- Malmslättsvägen -- Storgatan -- Drottninggatan -- Drottningrondellen -- Drottningtorget -- Hästskogatan -- Goal: Stallgatan
+
+________________________________________________________________
+Depth First
+
+24240.1 m, 2180 expanded nodes, planning time 347.7 msek
+Start: Hugo Theorells gata -- Nelly Sachs gata -- Medicingränd -- Fysikgränd -- Hannes Alfvéns gata -- Johannes Magnus väg -- Lärdomsgatan -- Nanna Svartz gata -- Poesigränd -- Fredrik Hasselqvists gata -- Lärdomsgatan -- Johannes Magnus väg -- Stratomtavägen -- Vallarondellen -- Universitetsvägen -- Vallarondellen -- Rydsvägen -- Vallarondellen -- Malmslättsvägen -- Östgötagatan -- Västra vägen -- Folkungagatan -- Gärdesgatan -- Västanågatan -- Bjälbogatan -- Ulvåsavägen -- Kindagatan -- Skärkindsgatan -- Vifolkagatan -- Ydregatan -- Egnahemsgatan -- Stenbrötsgatan -- Vretagatan -- Kagagatan -- Vretagatan -- Tornhagsvägen -- Örngatan -- Orrgatan -- Vretagatan -- Blomgatan -- Grenadjärgatan -- Industrigatan -- Bergsvägen -- Bergsrondellen -- Bergsvägen -- Industrigatan -- Mellangatan -- Industrigatan -- Steningerondellen -- Industrigatan -- Järnvägsgatan -- Industrigatan -- Steningerondellen -- Industrigatan -- Nordengatan -- Industrigatan -- Mellangatan -- Slöjdgatan -- Timmermansgatan -- Sveagatan -- Platensgatan -- Östgötagatan -- Gustav Adolfsrondellen -- Gustav Adolfsgatan -- Kettilsgatan -- Hertig Karlsgatan -- Engelbrektsgatan -- Sparregatan -- Järnvägsgatan -- Sankt Larsgatan -- Sturegatan -- Klostergatan -- Vasavägen -- Järnvägsavenyn -- Järnvägsgatan -- Hamngatan -- Nygatan -- Snickaregatan -- Drottninggatan -- Nya Tanneforsvägen -- Drottningrondellen -- Nya Tanneforsvägen -- Gamla Tanneforsvägen -- Gamla Norrköpingsvägen -- Stallgatan -- Hästskogatan -- Vetegatan -- Augustbergsgatan -- Tegelbruksgatan -- Nya Tanneforsvägen -- Loftgatan -- Liegatan -- Arbetaregatan -- Sandgårdsgatan -- Nya Tanneforsvägen -- Sågaregatan -- Nya Tanneforsvägen -- Gamla Tanneforsvägen -- Råggatan -- Gamla Tanneforsvägen -- Gelbgjutaregatan -- Gamla Tanneforsvägen -- Ladugatan -- Lindengatan -- Slåttergatan -- Gamla Tanneforsvägen -- Goal: Korngatan
