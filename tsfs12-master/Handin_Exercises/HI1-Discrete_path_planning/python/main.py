@@ -236,7 +236,7 @@ plot_plan(df_plan,f"Depth first ({df_plan['length']:.1f} m)", "DepthFirst")
 
 # Here, write your code for your planners. Start with the template code for the depth first search and extend.
 
-# %% run BreadthFirst planner
+
 def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     """Breadth first planner."""
     t = Timer()
@@ -294,11 +294,11 @@ def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
         }
 
 # Make a plan using the ```Breadthfirst``` planner
+# %% run BreadthFirst planner
 bf_plan = breadth_first(num_nodes, mission, f_next)
 plot_plan(bf_plan,f"Breadth first ({bf_plan['length']:.1f} m)", "BreadthFirst")
 
-# %% run Dijkstra planner
-
+# %% define dijkstra planner
 def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     # I think dijkstra is just breadth first with a priority queue
     """Dijkstra planner."""
@@ -356,10 +356,11 @@ def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             "expanded_nodes": expanded_nodes,
         }
 
+# %% run Dijkstra planner
 dijkstra_plan = dijkstra(num_nodes, mission, f_next)
 plot_plan(dijkstra_plan,f"Dijkstra ({dijkstra_plan['length']:.1f} m)", "Dijkstra")
 
-# %% run Astar planner
+# %% define Astar planner
 def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     """astar planner."""
     t = Timer()
@@ -427,10 +428,12 @@ def cost_to_go(x, xg):
     p_g = osm_map.nodeposition[xg]
     return latlong_distance(p_x, p_g)
 
-
+# %% run Astar planner
 astar_plan = astar(num_nodes, mission, f_next, cost_to_go)
 plot_plan(astar_plan,f"Astar({astar_plan['length']:.1f} m)", "Astar")
 
+
+# %% define BestFirst planner
 def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     """best first planner."""
     t = Timer()
@@ -492,13 +495,13 @@ def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 best_first_plan = best_first(num_nodes, mission, f_next, cost_to_go)
 plot_plan(best_first_plan,f"Best first ({best_first_plan['length']:.1f} m)", "BestFirst")
 
-# %% run AnytimeAstar planner
+# %% define AnytimeAstar planner
 def anytime_astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
     """Anytime Astar planner."""
     allowed_time = 50.0 # seconds
     c_factor = 3.0 # initial inflation factor
     c_values = []
-    c_decay = 0.05 # inflation factor decay per iteration
+    c_decay = 0.5 # inflation factor decay per iteration
     t = Timer()
     Ti = Timer()
     t.tic()
@@ -559,9 +562,12 @@ def anytime_astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             }
             out.append(plan_to_plot)
             #plot_plan(plan_to_plot, f"Anytime Astar ({plan_to_plot['length']:.1f} m)", "AnytimeAstar")
-    return out #, c_values
+    return out, c_values
 
-anytime_astar_plan = anytime_astar(num_nodes, mission, f_next, cost_to_go)
+# %% run AnytimeAstar planner
+anytime_astar_plans = anytime_astar(num_nodes, mission, f_next, cost_to_go)[0]
+for plan in anytime_astar_plans:
+    plot_plan(plan, f"Anytime Astar ({plan['length']:.1f} m)", "AnytimeAstar")
 # %% Assertions
 
 # Below are a few of tests on your implementations. Note, just because your implementation passes the tests doesn't mean that your implementations are fully correct. Do not submit a solution if you fail any of these tests!
@@ -593,22 +599,36 @@ def get_length_vs_time(planner, num_nodes, f_next, heuristic=None):
     out = []  # (length, time)
     for mission in pre_mission:
         plan = planner(num_nodes, mission, f_next, heuristic)
-        print(
+        if type(plan) is dict:
+            print(
             f"{planner.__name__:12s}: {plan['length']:8.1f} m, {plan['num_expanded_nodes']:5d} expanded nodes, planning time {plan['time']*1e3:8.1f} msek"
-        )
-        out.append((plan["length"], plan["time"]))
+            )
+            out.append((plan["length"], plan["time"]))
+        else:
+            pl,_ = plan
+            for p in pl:
+                print(
+            f"{planner.__name__:12s}: {p['length']:8.1f} m, {p['num_expanded_nodes']:5d} expanded nodes, planning time {p['time']*1e3:8.1f} msek"
+            )
+                out.append((p["length"], p["time"]))
     return out
 
 def get_time_vs_expanded(planner, num_nodes, f_next, heuristic=None):
     out = []  # (time, expanded)
     for mission in pre_mission:
         plan = planner(num_nodes, mission, f_next, heuristic)
-        if not plan or not isinstance(plan, dict):  # skip if plan is empty or not a dict
-            continue
-        print(
-            f"{planner.__name__:12s}: {plan['length']:8.1f} m, {plan['num_expanded_nodes']:5d} expanded nodes, planning time {plan['time']*1e3:8.1f} msek"
-        )
-        out.append((plan["time"], plan["num_expanded_nodes"]))
+        if type(plan) is dict:
+            print(
+                f"{planner.__name__:12s}: {plan['length']:8.1f} m, {plan['num_expanded_nodes']:5d} expanded nodes, planning time {plan['time']*1e3:8.1f} msek"
+            )
+            out.append((plan["time"], plan["num_expanded_nodes"]))
+        else:
+            pl, _ = plan
+            for p in pl:
+                print(
+                f"{planner.__name__:12s}: {p['length']:8.1f} m, {p['num_expanded_nodes']:5d} expanded nodes, planning time {p['time']*1e3:8.1f} msek"
+                )
+                out.append((p["time"], p["num_expanded_nodes"]))
     return out
 
 def plot_length_vs_time(data, title):
