@@ -10,10 +10,11 @@ import matplotlib.pyplot as plt
 from misc import Timer, latlong_distance
 from queues import FIFO, LIFO, PriorityQueue
 from osm import load_osm_map
+from utils import plot_plan
 
 
 # Run if you want plots in external windows (needed for manual mission definition)
-%matplotlib qt
+#%matplotlib qt
 
 
 
@@ -194,41 +195,14 @@ def depth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
         }
 
 
-def plot_plan(plan,label, title):
-    print(
-    f"{plan['length']:.1f} m, {plan['num_expanded_nodes']} expanded nodes, planning time {plan['time'] * 1e3:.1f} msek"
-    )
-    # Plot the resulting plan
 
-    _, ax = plt.subplots()
-    osm_map.plotmap()
-    osm_map.plotplan(plan["plan"], "b", label=label)
-    ax.set_title("Linköping")
-    _ = ax.legend()
-
-    # Plot nodes visited during search
-
-    _, ax = plt.subplots()
-    osm_map.plotmap()
-    osm_map.plotplan(plan["expanded_nodes"], "b.")
-    ax.set_ylabel("Latitude")
-    ax.set_xlabel("Longitude")
-    _ = ax.set_title(f"Nodes visited during {title} search")
-
-    # Names of roads along the plan ...
-
-    plan_way_names = osm_map.getplanwaynames(plan["plan"])
-    print("Start: ", end="")
-    for w in plan_way_names[:-1]:
-        print(w + " -- ", end="")
-    print("Goal: " + plan_way_names[-1])
 
 # %%# Planning example using the DepthFirst planner
 
 # Make a plan using the ```DepthFirst``` planner
 
 df_plan = depth_first(num_nodes, mission, f_next)
-plot_plan(df_plan,f"Depth first ({df_plan['length']:.1f} m)", "DepthFirst")
+plot_plan(df_plan,osm_map,f"Depth first ({df_plan['length']:.1f} m)", "DepthFirst")
 
 
 
@@ -296,7 +270,7 @@ def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 # Make a plan using the ```Breadthfirst``` planner
 # %% run BreadthFirst planner
 bf_plan = breadth_first(num_nodes, mission, f_next)
-plot_plan(bf_plan,f"Breadth first ({bf_plan['length']:.1f} m)", "BreadthFirst")
+plot_plan(bf_plan,osm_map,f"Breadth first ({bf_plan['length']:.1f} m)", "BreadthFirst")
 
 # %% define dijkstra planner
 def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
@@ -358,7 +332,7 @@ def dijkstra(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 
 # %% run Dijkstra planner
 dijkstra_plan = dijkstra(num_nodes, mission, f_next)
-plot_plan(dijkstra_plan,f"Dijkstra ({dijkstra_plan['length']:.1f} m)", "Dijkstra")
+plot_plan(dijkstra_plan,osm_map,f"Dijkstra ({dijkstra_plan['length']:.1f} m)", "Dijkstra")
 
 # %% define Astar planner
 def astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
@@ -430,7 +404,7 @@ def cost_to_go(x, xg):
 
 # %% run Astar planner
 astar_plan = astar(num_nodes, mission, f_next, cost_to_go)
-plot_plan(astar_plan,f"Astar({astar_plan['length']:.1f} m)", "Astar")
+plot_plan(astar_plan,osm_map,f"Astar({astar_plan['length']:.1f} m)", "Astar")
 
 
 # %% define BestFirst planner
@@ -493,81 +467,8 @@ def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 # %% run BestFirst planner
 
 best_first_plan = best_first(num_nodes, mission, f_next, cost_to_go)
-plot_plan(best_first_plan,f"Best first ({best_first_plan['length']:.1f} m)", "BestFirst")
+plot_plan(best_first_plan,osm_map,f"Best first ({best_first_plan['length']:.1f} m)", "BestFirst")
 
-# %% define AnytimeAstar planner
-def anytime_astar(num_nodes, mission, f_next, heuristic=None, num_controls=0):
-    """Anytime Astar planner."""
-    allowed_time = 50.0 # seconds
-    c_factor = 3.0 # initial inflation factor
-    c_values = []
-    c_decay = 0.5 # inflation factor decay per iteration
-    t = Timer()
-    Ti = Timer()
-    t.tic()
-    out = []
-
-    while c_factor > 1.0 and t.toc() < allowed_time:
-        iter_time = Ti.tic()
-        c_factor -= c_decay
-        unvis_node = -1
-        previous = np.full(num_nodes, dtype=int, fill_value=unvis_node)
-        cost_to_come = np.zeros(num_nodes)
-        control_to_come = np.zeros((num_nodes, num_controls), dtype=int)
-        expanded_nodes = []
-        # expanded = visited
-
-        startNode = mission["start"]["id"]
-        goalNode = mission["goal"]["id"]
-
-        q = PriorityQueue()
-        q.insert(startNode, c_factor * heuristic(startNode, goalNode)) 
-        foundPlan = False
-
-        while not q.IsEmpty() and t.toc() < allowed_time:
-            x = q.pop()[0]
-            expanded_nodes.append(x)
-            if x == goalNode:
-                foundPlan = True
-                duration = Ti.toc()
-                break
-            neighbours, u, d = f_next(x)
-            for xi, ui, di in zip(neighbours, u, d):
-                if previous[xi] == unvis_node or cost_to_come[x] + di < cost_to_come[xi] :
-                    previous[xi] = x
-                    cost_to_come[xi] = cost_to_come[x] + di
-                    q.insert(xi,cost_to_come[xi] + c_factor * heuristic(xi, goalNode))
-                    if num_controls > 0:
-                        control_to_come[xi] = ui
-        c_values.append(c_factor)
-        # Recreate the plan by traversing previous from goal node
-        if not foundPlan:
-            return []
-        else:
-            plan = [goalNode]
-            length = cost_to_come[goalNode]
-            control = []
-            while plan[0] != startNode:
-                if num_controls > 0:
-                    control.insert(0, control_to_come[plan[0]])
-                plan.insert(0, previous[plan[0]])
-            plan_to_plot = {
-                "plan": plan,
-                "length": length,
-                "num_expanded_nodes": len(expanded_nodes),
-                "name": "AnytimeAstar",
-                "time": duration,
-                "control": control,
-                "expanded_nodes": expanded_nodes,
-            }
-            out.append(plan_to_plot)
-            #plot_plan(plan_to_plot, f"Anytime Astar ({plan_to_plot['length']:.1f} m)", "AnytimeAstar")
-    return out, c_values
-
-# %% run AnytimeAstar planner
-anytime_astar_plans = anytime_astar(num_nodes, mission, f_next, cost_to_go)[0]
-for plan in anytime_astar_plans:
-    plot_plan(plan, f"Anytime Astar ({plan['length']:.1f} m)", "AnytimeAstar")
 # %% Assertions
 
 # Below are a few of tests on your implementations. Note, just because your implementation passes the tests doesn't mean that your implementations are fully correct. Do not submit a solution if you fail any of these tests!
@@ -678,7 +579,7 @@ def cycle_len_time():
         'Dijkstra': (dijkstra, None),
         'BestFirst': (best_first, cost_to_go),
         'Astar': (astar, cost_to_go),
-        'AnytimeAstar': (anytime_astar, cost_to_go)
+        #'AnytimeAstar': (anytime_astar, cost_to_go)
     }
     data = {}
     for planner_name, (planner_func, heuristic) in planners.items():
@@ -697,7 +598,7 @@ def cycle_time_expanded():
         'Dijkstra': (dijkstra, None),
         'BestFirst': (best_first, cost_to_go),
         'Astar': (astar, cost_to_go),
-        'AnytimeAstar': (anytime_astar, cost_to_go)
+        #'AnytimeAstar': (anytime_astar, cost_to_go)
     }
     data = {}
     for planner_name, (planner_func, heuristic) in planners.items():
@@ -706,24 +607,7 @@ def cycle_time_expanded():
     plot_time_vs_expanded(data, 'Planing time vs expanded nodes for different planners')
 cycle_time_expanded()
 
-# %% run anytime astar plot
-def plot_anytime_astar(out):
-    out, c_values = out
-    plt.figure()
-    for i, plan in enumerate(out):
-        plt.plot(c_values[i], plan['length'],
-                 'o-',
-                 label=c_values[i],
-                 linewidth=1.)
 
-    plt.xlabel('c')
-    plt.ylabel('plan length [m]')
-    plt.title('Anytime Astar: Plan length for different inflation factors')
-    
-    plt.grid(True)
-    plt.show()
-out = anytime_astar(num_nodes, mission, f_next, cost_to_go)
-plot_anytime_astar(out)
 # %%
 plt.show()
 
