@@ -14,8 +14,8 @@ import os
 from seaborn import despine
 
 
-# Run instead if you want plots in external windows
-# %matplotlib
+# %% Run instead if you want plots in external windows
+%matplotlib qt
 
 
 # Run the ipython magic below to activate automated import of modules. Useful if you write code in external .py files.
