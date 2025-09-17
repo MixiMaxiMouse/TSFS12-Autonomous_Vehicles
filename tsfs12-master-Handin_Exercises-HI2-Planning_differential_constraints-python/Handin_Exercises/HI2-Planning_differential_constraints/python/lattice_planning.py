@@ -3,6 +3,7 @@
 
 # %% TSFS12 Hand-in Exercise 2: Planning for Vehicles with Differential Motion Constraints --- Motion Planning Using a State Lattice
 
+from unittest import case
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -12,6 +13,7 @@ from world import BoxWorld
 from motionprimitives import MotionPrimitives
 import os
 from seaborn import despine
+from misc import Timer
 
 
 # %% Run instead if you want plots in external windows
@@ -59,13 +61,32 @@ else:
 
 
 # Plot the computed motion primitives
-
 _, ax = plt.subplots(num=10, clear=True)
-mp.plot("b", lw=0.5)
+
+# Plot forward primitives in blue
+for i in range(mp.mprims.shape[0]):
+    for j in range(mp.mprims.shape[1]):
+        mpi = mp.mprims[i, j]
+        if mpi is None:
+            continue
+        ax.plot(mpi["x"], mpi["y"], "b", lw=0.5)
+
+# Plot reverse primitives in red
+for i in range(mp.mprims.shape[0]):
+    for j in range(mp.mprims.shape[1]):
+        mpi = mp.mprims[i, j]
+        if mpi is None:
+            continue
+        # Reverse primitive: flip x/y
+        x_rev = np.flip(mpi["x"]) - mpi["x"][-1]
+        y_rev = np.flip(mpi["y"]) - mpi["y"][-1]
+        ax.plot(x_rev, y_rev, "r", lw=0.5)
+
 ax.set_xlabel("x [m]")
 ax.set_ylabel("y [m]")
-ax.set_title("Motion primitives")
+ax.set_title("Motion primitives (forward blue, reverse red)")
 despine()
+
 
 
 # %% Define Planning Mission
@@ -136,6 +157,8 @@ mission = {
     "start": {"id": np.argmin(np.sum((world.st_sp - np.array(start)[:, None]) ** 2, axis=0))},
     "goal": {"id": np.argmin(np.sum((world.st_sp - np.array(goal)[:, None]) ** 2, axis=0))},
 }
+
+print(mission)
 
 
 # Plot world and start and goal positions
@@ -253,28 +276,51 @@ n = world.num_nodes()
 
 # Define cost-to-go heuristic for planner
 
+heuristic_type = 4  # 1 Euclidean, 2 Manhattan, 3 Zero heuristic, 4 Weighted orientation mismatch
 
 def cost_to_go(x, xg):
-    return np.linalg.norm(world.st_sp[0:2, x] - world.st_sp[0:2, xg])
+    if heuristic_type == 1:  # Euclidean distance
+        return np.linalg.norm(world.st_sp[0:2, x] - world.st_sp[0:2, xg])
+    elif heuristic_type == 2:  # Manhattan distance
+        return np.sum(np.abs(world.st_sp[0:2, x] - world.st_sp[0:2, xg]))
+    elif heuristic_type == 3:  # Zero heuristic
+        return 0
+    elif heuristic_type == 4:  # Weighted orientation mismatch
+        pos_cost = np.linalg.norm(world.st_sp[0:2, x] - world.st_sp[0:2, xg])
+        # Orientation difference, wrapped to [-pi, pi]
+        th_cost = np.abs(np.arctan2(
+            np.sin(world.st_sp[2, x] - world.st_sp[2, xg]),
+            np.cos(world.st_sp[2, x] - world.st_sp[2, xg])
+        ))
+        lambda_th = 2.0  # Weight for orientation penalty (tune as needed)
+        return pos_cost + lambda_th * th_cost
+    return 0
 
 
 # Plan using all pre-defined planners from Hand-in Exercise 1
 
+NewYorkTimes = []
+T = Timer()
+
 all_planners = [breadth_first, depth_first, dijkstra, astar, best_first]
-res = [
-    planner(
+res = []
+    
+for planner in all_planners :
+    T.tic()
+    result = planner(
         n,
         mission,
         lambda x: next_state(x, world, mp, rev=True),
         heuristic=cost_to_go,
         num_controls=3,
     )
-    for planner in all_planners
-]
+    NewYorkTimes.append(T.toc())
+    res.append(result)
+
 
 # Print name and length for each result
-for r in res:
-    print(f"Planner: {r['name']}, Length: {r['length']:.3f}")
+for r, t in zip(res, NewYorkTimes):
+    print(f"Planner: {r['name']}, Length: {r['length']:.3f}\n Time: {t:.3f} s")
 
 opt_length = [r["length"] for r in res if r["name"] == "Dijkstra"][0]  # Dijkstra is optimal
 print(f"Optimal length: {opt_length:.3f}")
@@ -317,6 +363,4 @@ for i, r in enumerate(res):
     despine()
 
 plt.show()
-
-
 # %%
