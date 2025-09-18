@@ -79,6 +79,7 @@ def depth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 
     # Recreate the plan by traversing previous from goal node
     if not foundPlan:
+        print("No plan found for depth!")
         return []
     else:
         plan = [goalNode]
@@ -136,6 +137,7 @@ def breadth_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
 
     # Recreate the plan by traversing previous from goal node
     if not foundPlan:
+        print("No plan found! for breadth")
         return []
     else:
         plan = [goalNode]
@@ -329,3 +331,5 @@ def best_first(num_nodes, mission, f_next, heuristic=None, num_controls=0):
             "control": control,
             "expanded_nodes": expanded_nodes,
         }
+
+# %%
