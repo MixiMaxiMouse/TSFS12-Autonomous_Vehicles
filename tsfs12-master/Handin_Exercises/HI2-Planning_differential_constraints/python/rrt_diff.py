@@ -33,8 +33,15 @@ _, ax = plt.subplots(num=10, clear=True)
 world.draw()
 ax.set_xlabel("x")
 ax.set_ylabel("y")
-_ = ax.axis([world.xmin, world.xmax, world.ymin, world.ymax])
 
+start = np.array([1, 0, np.pi / 4])  # Start state (x,y,th)
+goal = np.array([6.5, 9, np.pi / 2])  # Goal state (x,y,th)
+
+ax.plot(*start[0:2], "bo", markersize=8, label="start")
+ax.plot(*goal[0:2], "ko", markersize=8, label="goal")
+_ = ax.axis([world.xmin, world.xmax, world.ymin, world.ymax])
+ax.legend()
+ax.plot()
 
 # %% Car Simulation Function
 
@@ -156,7 +163,20 @@ def rrt_diff(start, goal, u_c, sim, world, opts):
     state_trajectories = [start]  # No trajectory segment needed to reach start state
 
     # YOUR CODE HERE
-
+    for i in range(opts["K"]):
+        x_rand = sample_free()
+        idx_near = nearest(x_rand)
+        x_near = nodes[:, idx_near]
+        new_paths, dist_to_x_rand = steer_candidates(x_near, x_rand)
+        if new_paths:
+            best_path_idx = np.argmin(dist_to_x_rand)
+            best_path = new_paths[best_path_idx]
+            x_new = best_path[:, -1]
+            nodes = np.column_stack((nodes, x_new))
+            parents.append(idx_near)
+            state_trajectories.append(best_path)
+            if np.linalg.norm(x_new - goal) < opts["eps"]:
+                break
     Tplan = T.toc()
     goal_idx = np.argmin(distance_fcn(nodes, goal[:, None]), axis=0)
     return goal_idx, nodes, parents, state_trajectories, Tplan
@@ -164,8 +184,7 @@ def rrt_diff(start, goal, u_c, sim, world, opts):
 
 # Run the planner
 
-start = np.array([1, 0, np.pi / 4])  # Start state (x,y,th)
-goal = np.array([6.5, 9, np.pi / 2])  # Goal state (x,y,th)
+
 
 # Define the possible control inputs
 u_c = np.linspace(-np.pi / 4, np.pi / 4, 11)
@@ -176,7 +195,7 @@ opts = {
     "beta": 0.05,  # Probability of selecting goal state as target state
     "lambda": 0.1,  # Step size (in time)
     "eps": -0.01,  # Threshold for stopping the search (negative for full search)
-    "K": 4000,
+    "K": 10000,
 }  # Maximum number of iterations
 
 goal_idx, nodes, parents, state_trajectories, Tplan = rrt_diff(
@@ -190,15 +209,20 @@ print(f"Finished in {Tplan:.2f} s")
 # Hint on plotting: To plot the path corresponding to the found solution,
 # the following code could be useful (utilizing backtracking from the goal
 # node:
-# drawlines = []
-# idx = goal_idx
-# while idx != 0:
-#     traj_i = state_trajectories[idx]
-#     drawlines.append(traj_i[0])
-#     drawlines.append(traj_i[1])
-#     idx = parents[idx]
-# _, ax = plt.subplots(num=99, clear=True)
-# ax.plot(*drawlines, color='b', lw=4)
+drawlines = []
+idx = goal_idx
+while idx != 0:
+    traj_i = state_trajectories[idx]
+    drawlines.append(traj_i[0])
+    drawlines.append(traj_i[1])
+    idx = parents[idx]
+_, ax = plt.subplots(num=11, clear=True)
+world.draw()
+
+ax.plot(*start[0:2], "bo", markersize=8, label="start")
+ax.plot(*goal[0:2], "ko", markersize=8, label="goal")
+ax.legend()
+ax.plot(*drawlines, color='b', lw=4)
 
 
 # %%

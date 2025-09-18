@@ -9,14 +9,14 @@ from misc import Timer
 from world import BoxWorld
 
 
-# %matplotlib  # Run instead if you want plots in external windows
+%matplotlib qt
 
 
 # Run the ipython magic below to activate automated import of modules. Useful if you write code in external .py files.
 # %load_ext autoreload
 # %autoreload 2
 
-mission_nbr = 3
+mission_nbr = 1
 # %% Define the Planning World
 world = BoxWorld([[-2, 12], [-2, 12]])
 # Define world with obstacles
@@ -51,7 +51,7 @@ elif mission_nbr == 4:
     world.add_box(-2, -2, 1, 12)
     world.add_box(-1, -2, 13, 1)
     start = np.array([5, 6])
-    goal = np.array([11, 6])
+    goal = np.array([12, 6])
 
 
 
@@ -66,7 +66,6 @@ _ = ax.axis([world.xmin, world.xmax, world.ymin, world.ymax])
 
 # Implementation of the RRT planning algorithm for a particle moving in a plane (2D world)
 
-i = 0
 def rrt_particle(start, goal, world, opts):
     """RRT planner for particle moving in a 2D world
 
@@ -141,7 +140,20 @@ def rrt_particle(start, goal, world, opts):
     
     Tplan = T.toc()
     goal_idx = np.argmin(np.sum((nodes - goal.reshape((-1, 1))) ** 2, axis=0))
+    print(f"Number of nodes in the tree: {nodes.shape[1]}")
+    nodes_in_path = 0
+    path_length = 0.0
+    idx = goal_idx
+    while idx != 0:
+        parent_idx = parents[idx]
+        path_length += np.linalg.norm(nodes[:, idx] - nodes[:, parent_idx])
+        idx = parent_idx
+        nodes_in_path += 1
+        
+    print(f"Number of nodes in the path: {nodes_in_path}")
+    print(f"length of the path: {path_length:.2f}")
 
+    
     return goal_idx, nodes, parents, Tplan
 
 
@@ -153,7 +165,7 @@ def rrt_particle(start, goal, world, opts):
 opts = {
     "beta": 0.05,  # Probability of selecting goal state as target state in the sample
     "lambda": 0.1,  # Step size
-    "eps": -0.01,  # Threshold for stopping the search (negative for full search)
+    "eps": 1.0,  # Threshold for stopping the search (negative for full search)
     "K": 5000,
 }  # Maximum number of iterations, if eps < 0
 
@@ -177,18 +189,19 @@ for j in range(1, nodes.shape[1]):
 
 drawlines = []
 idx = idx_goal
-i+=1
+
 while idx != 0:
     ll = np.column_stack((nodes[:, parents[idx]], nodes[:, idx]))
     drawlines.append(ll[0])
     drawlines.append(ll[1])
     idx = parents[idx]
+
 #_, ax = plt.subplots(num=99, clear=True)
 
 
 ax.plot(*drawlines, color='b', lw=2)
 world.draw()
-plt.savefig(f'plots/RRT_path_with_mission3handin2.pdf')
+plt.savefig(f'plots/missionwitheps1.pdf')
 
 
 # %%
