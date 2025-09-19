@@ -224,6 +224,8 @@ print(f"Finished in {Tplan:.2f} s")
 # node:
 drawlines = []
 idx = goal_idx
+
+
 while idx != 0:
     traj_i = state_trajectories[idx]
     drawlines.append(traj_i[0])
@@ -232,6 +234,10 @@ while idx != 0:
 _, ax = plt.subplots(num=11, clear=True)
 world.draw()
 
+for i in range(1, len(state_trajectories)):  # Skip index 0 (start state has no trajectory)
+    traj_i = state_trajectories[i]
+    ax.plot(traj_i[0], traj_i[1], color='green', lw=1, alpha=0.7)
+    
 ax.plot(*start[0:2], "bo", markersize=8, label="start")
 ax.plot(*goal[0:2], "ko", markersize=8, label="goal")
 ax.legend()
