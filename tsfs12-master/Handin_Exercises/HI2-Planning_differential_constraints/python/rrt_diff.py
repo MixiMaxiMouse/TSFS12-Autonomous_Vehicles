@@ -163,20 +163,33 @@ def rrt_diff(start, goal, u_c, sim, world, opts):
     state_trajectories = [start]  # No trajectory segment needed to reach start state
 
     # YOUR CODE HERE
-    for i in range(opts["K"]):
+    goal_idx = None
+    for i in range(int(opts["K"])):
         x_rand = sample_free()
         idx_near = nearest(x_rand)
         x_near = nodes[:, idx_near]
         new_paths, dist_to_x_rand = steer_candidates(x_near, x_rand)
-        if new_paths:
-            best_path_idx = np.argmin(dist_to_x_rand)
-            best_path = new_paths[best_path_idx]
-            x_new = best_path[:, -1]
-            nodes = np.column_stack((nodes, x_new))
-            parents.append(idx_near)
-            state_trajectories.append(best_path)
-            if np.linalg.norm(x_new - goal) < opts["eps"]:
-                break
+
+        if not new_paths:
+            continue
+
+        best_idx = int(np.argmin(dist_to_x_rand))
+        best_path = new_paths[best_idx]     # shape (3, T)
+        x_new = best_path[:, -1].reshape(3, 1)
+
+        # append new node
+        nodes = np.hstack((nodes, x_new))
+        parents.append(idx_near)
+        state_trajectories.append(best_path)
+
+        # check goal using position-only distance
+        goal_pos = np.array(goal).flatten()[:2].reshape(2, 1)  
+        if distance_fcn(x_new[:2], goal_pos) < opts["eps"]:
+            goal_idx = nodes.shape[1] - 1
+            break
+        if goal_idx is None:
+            goal_pos = np.array(goal).flatten()[:2].reshape(2, 1)
+            goal_idx = np.argmin(distance_fcn(nodes[:2], goal_pos))
     Tplan = T.toc()
     goal_idx = np.argmin(distance_fcn(nodes, goal[:, None]), axis=0)
     return goal_idx, nodes, parents, state_trajectories, Tplan
@@ -195,7 +208,7 @@ opts = {
     "beta": 0.05,  # Probability of selecting goal state as target state
     "lambda": 0.1,  # Step size (in time)
     "eps": -0.01,  # Threshold for stopping the search (negative for full search)
-    "K": 10000,
+    "K": 5000,
 }  # Maximum number of iterations
 
 goal_idx, nodes, parents, state_trajectories, Tplan = rrt_diff(
