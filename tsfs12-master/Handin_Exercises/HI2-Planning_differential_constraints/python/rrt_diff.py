@@ -195,7 +195,7 @@ def rrt_diff(start, goal, u_c, sim, world, opts):
     return goal_idx, nodes, parents, state_trajectories, Tplan
 
 
-# Run the planner
+# %%Run the planner
 
 
 
@@ -206,9 +206,9 @@ u_c = np.linspace(-np.pi / 4, np.pi / 4, 11)
 
 opts = {
     "beta": 0.05,  # Probability of selecting goal state as target state
-    "lambda": 0.1,  # Step size (in time)
+    "lambda": 0.05,  # Step size (in time)
     "eps": -0.01,  # Threshold for stopping the search (negative for full search)
-    "K": 5000,
+    "K": 10000,
 }  # Maximum number of iterations
 
 goal_idx, nodes, parents, state_trajectories, Tplan = rrt_diff(
@@ -237,12 +237,17 @@ world.draw()
 for i in range(1, len(state_trajectories)):  # Skip index 0 (start state has no trajectory)
     traj_i = state_trajectories[i]
     ax.plot(traj_i[0], traj_i[1], color='green', lw=1, alpha=0.7)
-    
+
 ax.plot(*start[0:2], "bo", markersize=8, label="start")
 ax.plot(*goal[0:2], "ko", markersize=8, label="goal")
 ax.legend()
 ax.plot(*drawlines, color='b', lw=4)
 
+# save the figure
+save_fig = True
+if save_fig:
+    name_of_file = "rrt_diff_lambda_005.pdf"
+    plt.savefig(f'plots/{name_of_file}')
 
 # %%
 plt.show()
