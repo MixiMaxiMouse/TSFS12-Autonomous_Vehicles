@@ -103,6 +103,8 @@ class PurePursuitController(PurePursuitControllerBase):
         self.l = l
         self.L = L
         self.goal_tol = goal_tol
+        self.idx_start = 0
+        self.last_idx = 0
 
     def pursuit_point(self, p_car):
         """Return pure-pursuit given the position of the car.
@@ -116,9 +118,7 @@ class PurePursuitController(PurePursuitControllerBase):
         # p_car - position of vehicle
 
         path_points = self.plan.path  # Points on the path
-        print("path_points", path_points)
         l = self.l  # Pure-pursuit look-ahead
-        print("l", l)
 
         # Exercise 5.1
 
@@ -126,8 +126,15 @@ class PurePursuitController(PurePursuitControllerBase):
         #       for example search pure-pursuit point among the points in path_points
         #       but don't forget to take into account the approximate pursuit-horizon when
         #       computing the steering angle.
-        p_purepursuit = [0, 0]
-        return p_purepursuit
+        
+        self.idx_start = self.last_idx
+        for i in range(self.idx_start, len(path_points)):
+            dist = np.linalg.norm(path_points[i] - p_car)
+            if dist >= l:
+                self.last_idx = i
+                return path_points[i]
+        return path_points[-1] # if no point found, return goal
+
 
     def pure_pursuit_control(self, dp, theta):
         """Compute pure-pursuit steer angle.
@@ -141,7 +148,15 @@ class PurePursuitController(PurePursuitControllerBase):
         """
 
         # Your code here to compute new steering angle
-        delta = 0
+        L = self.L
+        x = dp[0]
+        y = dp[1]
+        ld2 = x**2 + y**2  # squared lookahead distance
+
+        if ld2 == 0:
+            return 0.0  # Avoid division by zero
+
+        delta = np.arctan2(2 * L * y, ld2)
         return delta
 
     def u(self, t, w):
@@ -160,9 +175,22 @@ class PurePursuitController(PurePursuitControllerBase):
         # Your code here to compute steering angle, use the functions
         # self.pursuit_point() and self.pure_pursuit_control() you
         # have written above.
+        # 1. Find pursuit point
+        p_purepursuit = self.pursuit_point(p_car)
 
-        delta = 0
-        acc = 0
+        # 2. Vector to pursuit point (global frame)
+        dp_global = p_purepursuit - p_car
+
+        # 3. Transform to car frame
+        R = np.array([
+            [np.cos(-theta), -np.sin(-theta)],
+            [np.sin(-theta),  np.cos(-theta)]
+        ])
+        dp_car = R @ dp_global
+
+        # 4. Compute steering angle
+        delta = self.pure_pursuit_control(dp_car, theta)
+        acc = 0 
 
         self._pursuit_plot(p_car, p_purepursuit)  # Included for animation purposes.
 
@@ -178,11 +206,15 @@ class PurePursuitController(PurePursuitControllerBase):
         return dist > self.goal_tol**2
 
 
+
 # %%# Assertions
 
 # A few tests on your implementation. Note that passing these tests doesn't imply that your solution is correct but do not submit a solution if your solution doesn't pass these tests. First, test the ```pure_pursuit_control``` function
 
 pp_controller = PurePursuitController(l=4, L=car.L, path=nom_path, goal_tol=0.25)
+
+print ("value : ", abs(pp_controller.pure_pursuit_control(np.array([1.0, 1.0]), 10 * np.pi / 180) - 1.01840))
+
 assert (
     abs(pp_controller.pure_pursuit_control(np.array([1.0, 1.0]), 10 * np.pi / 180) - 1.01840) < 1e-3
 )
