@@ -133,7 +133,7 @@ class PurePursuitController(PurePursuitControllerBase):
         #       for example search pure-pursuit point among the points in path_points
         #       but don't forget to take into account the approximate pursuit-horizon when
         #       computing the steering angle.
-        return p_purepursuit
+
 
     def pure_pursuit_control(self, dp, theta):
         """Compute pure-pursuit steer angle.
@@ -265,25 +265,37 @@ class StateFeedbackController(ControllerBase):
         """
 
         # YOUR CODE HERE
-        theta_e = 0.0
+        tan,normal = self.plan.heading(s)
+        theta_path = np.arctan2(tan[1], tan[0])
+        theta_e = -(theta_path - theta)
+        theta_e = np.arctan2(np.sin(theta_e), np.cos(theta_e))
+        #print(theta_e)
         return theta_e
 
     def u(self, t, w):
         x, y, theta, v = w
         p_car = w[0:2]
-
+        u0 = np.array([0, 0])  # Nominal control input
+        
         # Compute d and theta_e errors. Use the SplinePath method project
         # and the obj.heading_error() function you've written above
 
         # YOUR CODE HERE
-        d = 0
-        theta_e = 0
-
-        # Compute control signal delta
+        theta_e = self.heading_error(theta, self.s0)
+        si, dk = self.plan.project(p_car, self.s0)
+        self.d.append(dk)
+        self.s0 = si    
+        #print("theta_e" ,theta_e)
+        u = - self.K * dk - self.K*theta_e  # state feedback control law
+       # print("u:", u)
         acc = 0  # Constant speed
-        delta = 0  # Steering angle
-
+        delta = np.arctan(self.L * u) # Steering angle = Arctan(L*u)
+         
+        
+        # print("delta :", delta)
+        # print("acc:" , acc)
         return np.array([delta, acc])
+
 
     def run(self, t, w):
         p_goal = self.plan.path[-1, :]
@@ -293,6 +305,55 @@ class StateFeedbackController(ControllerBase):
 
         return dist > self.goal_tol**2
 
+
+
+# %% Simulate state feedback controller
+
+
+plt.ion()  # mode interactif
+
+s = np.linspace(0, nom_path.length, 200)
+fig, ax = plt.subplots(num=98, clear=True)
+ax.plot(nom_path.x(s), nom_path.y(s), "b", lw=0.5)
+ax.plot(nom_path.path[:, 0], nom_path.path[:, 1], "rx", markersize=3)
+ax.set_aspect('equal', 'box')
+
+car = SingleTrackModel()
+car.controller = StateFeedbackController(
+    K=0.5, L=car.L, path=nom_path, goal_tol=0.7
+)
+
+w0 = np.array([0.0, 1.0, np.pi / 2 * 0.9, 2.0])
+car.set_state(w0, t0=0.0)
+
+dt = 0.1
+T = 80.0
+
+traj_x = [w0[0]]
+traj_y = [w0[1]]
+
+# handle plot objects (plus efficace que replot à chaque fois)
+(line_traj,) = ax.plot(traj_x, traj_y, "r-")
+(point_car,) = ax.plot(w0[0], w0[1], "ro")
+
+fig.canvas.draw()
+fig.canvas.flush_events()
+
+# boucle d'intégration + affichage
+while car.t < T and car.controller.run(car.t, car.w):
+    # calculer la commande au temps courant
+    u = car.controller.u_timed(car.t, car.w)
+    car._u = u                       # l'intégrateur lit self._u dans dx
+    car.simulate_step(car.t + dt)    # intégrer jusqu'à t+dt (Tend est absolu)
+
+    t, w = car.get_state()
+    traj_x.append(w[0]); traj_y.append(w[1])
+
+    line_traj.set_data(traj_x, traj_y)
+    point_car.set_data([w[0]], [w[1]])
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
 # %%
 plt.show()
