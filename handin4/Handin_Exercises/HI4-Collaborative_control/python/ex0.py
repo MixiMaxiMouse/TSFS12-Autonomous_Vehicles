@@ -16,7 +16,7 @@ from collab_functions import CreateAgent, AgentFormation
 #
 # If you have no default Matplotlib backend, you might have to write
 #
-# ```%matplotlib tk```
+%matplotlib qt
 #
 # to explicitly state which backend to use (tk is a good choice that should work on all platforms)
 
@@ -125,5 +125,7 @@ def animate(i):
 
 ani = animation.FuncAnimation(fig, animate, interval=5, frames=x.shape[0], blit=True, repeat=False)
 
-# %%
+
 plt.show()
+
+# %%
