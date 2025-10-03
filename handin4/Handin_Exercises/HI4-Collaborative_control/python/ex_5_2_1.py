@@ -83,74 +83,78 @@ def g_absolute_pd(y, xref, ctrlpar):
     
     return u
 
+def g_relative_pd(y, xref, ctrlpar):
+    k_p = ctrlpar["k_p"]
+    k_v = ctrlpar["k_v"]
+
+    # error = desired - measured
+    errors_p = -(xref[0:2] - y[:,0:2])   # position error
+    errors_v = -(xref[2:4] - y[:,2:4])   # velocity error
+
+    # control = average over neighbors
+    u = k_p * np.mean(errors_p, axis=0) + k_v * np.mean(errors_v, axis=0)
+    return u
 
 # Formation graph - all agents measure their own absolute position and velocity
 # For double integrator, each measurement includes both position and velocity
 n = 4  # number of states per agent: [p_x, p_y, v_x, v_y]
 
-G = [
-    (0,),  # Agent 0 measures its own state
-    (1,),  # Agent 1 measures its own state
-    (2,),  # Agent 2 measures its own state
-    (3,),  # Agent 3 measures its own state
-]
-
-
+G = [(0,)]  # Agent 0 measures itself
+for i in range(1, 8):
+    G.append((i-1, i))
+    
+# G.append((6,7))  # Agent 7 measures relative to agent 6
 # Formation references - now include both position and velocity references
 # For a trajectory p(t), the velocity reference is dp/dt
+# Reference setup
 formation_references = [
-    # Agent 0: Moving counter-clockwise on circle with radius 1
-    lambda t: [np.cos(2*t), np.sin(2*t), -2*np.sin(2*t), 2*np.cos(2*t)],
-    
-    # Agent 1: Moving clockwise on circle with radius 2
-    lambda t: [2*np.cos(-t), 2*np.sin(-t), 2*np.sin(-t), -2*np.cos(-t)],
-    
-    # Agent 2: Fixed position (zero velocity)
-    lambda t: [3, 2, 0, 0],
-    
-    # Agent 3: Fixed position (zero velocity)
-    lambda t: [5, 4, 0, 0],
+    lambda t: [0, 4, 0, 0],  # agent 0 absolute reference
 ]
+for _ in range(1, 8):
+    formation_references.append(lambda t: [0, 1, 0, 0])  # relative reference
+
 
 
 # Create agents with double integrator model and PD controller
 # Model parameters with and without wind
 modelparam_no_wind = {"wind": np.array([0.0, 0.0])}
-modelparam_with_wind = {"wind": np.array([5, 0.0])}  # Wind force in x-direction
+modelparam_with_wind = {"wind": np.array([0.0, 0.0])}  # Wind force in x-direction
 
 # Controller parameters - tune these for good performance
-ctrl_params_1 = {"k_p": 2.0, "k_v": 3.0}   # Lower gains
-ctrl_params_2 = {"k_p": 5.0, "k_v": 5.0}   # Higher gains
+ctrl_params_1 = {"k_p": 2.0, "k_v": 2.0}   # Lower gains
+#ctrl_params_2 = {"k_p": 5.0, "k_v": 5.0}   # Higher gains
 
 # Choose whether to simulate with or without wind
-USE_WIND = True  # Set to True to include wind force
+USE_WIND = False  # Set to True to include wind force
 modelparam = modelparam_with_wind if USE_WIND else modelparam_no_wind
 
 agents = [
-    CreateAgent(double_integrator, modelparam, g_absolute_pd, ctrl_params_2),
-    CreateAgent(double_integrator, modelparam, g_absolute_pd, ctrl_params_1),
-    CreateAgent(double_integrator, modelparam, g_absolute_pd, ctrl_params_1),
-    CreateAgent(double_integrator, modelparam, g_absolute_pd, ctrl_params_2),
+    CreateAgent(double_integrator, modelparam, g_absolute_pd, ctrl_params_1),  # Agent 0
 ]
+for _ in range(1, 8):
+    agents.append(CreateAgent(double_integrator, modelparam, g_relative_pd, ctrl_params_1))
 
+print(len(agents),len(G), len(formation_references) )
 formation = AgentFormation(agents, G, formation_references, n)
-
 
 # %% Simulate and animate
 # Initial state: [p_x0, p_y0, v_x0, v_y0] for each agent
-# Starting positions same as ex0, but with zero initial velocities
+
 x0 = np.array([
-    1, 0, 0, 0,  # Agent 0: position (1,0), velocity (0,0)
-    2, 0, 0, 0,  # Agent 1: position (2,0), velocity (0,0)
-    3, 0, 0, 0,  # Agent 2: position (3,0), velocity (0,0)
-    4, 0, 0, 0,  # Agent 3: position (4,0), velocity (0,0)
+    0, 0, 0, 0,  # Agent 0: position (0,0), velocity (0,0)
+    1, 0, 0, 0,  # Agent 1: position (1,0), velocity (0,0)
+    2, 0, 0, 0,  # Agent 2: position (2,0), velocity (0,0)
+    3, 0, 0, 0,  # Agent 3: position (3,0), velocity (0,0)
+    4, 0, 0, 0,  # Agent 4: position (4,0), velocity (0,0)
+    5, 0, 0, 0,  # Agent 5: position (5,0), velocity (0,0)
+    6, 0, 0, 0,  # Agent 6: position (6,0), velocity (0,0)
+    7, 0, 0, 0   # Agent 7: position (7,0), velocity (0,0)
 ])
 
 # Simulate the formation
-t = np.arange(0, 10, 0.05)  # Time vector
+t = np.arange(0, 15, 0.05)  # Time vector
+
 x = odeint(formation.ode, x0, t)
-
-
 
 # %% Plot trajectories
 fig_traj, ax_traj = plt.subplots(num=21, clear=True, figsize=(10, 8))
@@ -160,7 +164,7 @@ wind_status = "with wind" if USE_WIND else "without wind"
 ax_traj.set_title(f"Agent Trajectories ({wind_status})")
 ax_traj.grid(True, alpha=0.3)
 
-colors = ['blue', 'red', 'green', 'orange']
+colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
 for idx in range(len(agents)):
     # Extract x and y positions for each agent
     x_pos = x[:, 0 + n * idx]

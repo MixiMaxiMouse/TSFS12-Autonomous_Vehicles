@@ -67,7 +67,7 @@ class AgentFormation:
                 self.absolute_measurement[idx] = True
             else:
                 self.measurement_graph.append(
-                    np.array([np.row_stack((self.agent_idx[edg[0]], self.agent_idx[edg[1]])) for edg in agent_edges])
+                    np.array([np.vstack((self.agent_idx[edg[0]], self.agent_idx[edg[1]])) for edg in agent_edges])
                 )
 
     def h_state(self, x, meas_idx):
