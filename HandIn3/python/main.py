@@ -1,0 +1,477 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# %% TSFS12 Hand-in exercise 3: Path following for autonomous vehicles
+
+import numpy as np
+import matplotlib.pyplot as plt
+from vehiclecontrol import ControllerBase, SingleTrackModel, PurePursuitControllerBase
+from splinepath import SplinePath
+from scipy.linalg import solve_discrete_are
+
+
+# Run if you want plots in external windows
+%matplotlib qt
+
+
+# Run the ipython magic below to activate automated import of modules. Useful if you write code in external .py files.
+# %load_ext autoreload
+# %autoreload 2
+
+
+# %% Make a simple controller and simulate vehicle
+
+
+class MiniController(ControllerBase):
+    def __init__(self):
+        super().__init__()
+
+    def u(self, t, w):
+        a = 0.0
+        if t < 10:
+            u = [np.pi / 180 * 10, a]
+        elif 10 <= t < 20:
+            u = [-np.pi / 180 * 11, a]
+        elif 20 <= t < 23:
+            u = [-np.pi / 180 * 0, a]
+        elif 23 <= t < 40:
+            u = [-np.pi / 180 * 15, a]
+        else:
+            u = [-np.pi / 180 * 0, a]
+        return u
+
+
+opts = {"L": 2, "amax": np.inf, "amin": -np.inf, "steer_limit": np.pi / 3}
+
+car = SingleTrackModel().set_attributes(opts)
+car.Ts = 0.1
+car.controller = MiniController()
+w0 = [0, 0, 0, 2]
+z0 = car.simulate(w0, T=40, dt=0.1, t0=0.0)
+t, w, u = z0
+M = 10
+p = w[::M, 0:2]
+nom_path = SplinePath(p)
+
+
+s = np.linspace(0, nom_path.length, 100)
+
+_, ax = plt.subplots(num=10, clear=True)
+ax.plot(nom_path.x(s), nom_path.y(s))
+ax.plot(p[:, 0], p[:, 1], "rx")
+ax.set_xlabel("x [m]")
+ax.set_ylabel("y [m]")
+ax.set_title("Path from simple controller")
+ax.axis("square")
+
+fig, ax = plt.subplots(1, 2, num=11, clear=True, layout="constrained")
+ax[0].plot(t, u[:, 0] * 180 / np.pi)
+ax[0].set_xlabel("t [s]")
+ax[0].set_ylabel("steer [deg]")
+ax[0].set_title("Steer")
+
+ax[1].plot(t, u[:, 1])
+ax[1].set_xlabel("t [s]")
+ax[1].set_ylabel("acceleration [m/s^2]")
+ax[1].set_title("Acceleration")
+
+
+# %% Pure pursuit controller
+
+
+class PurePursuitController(PurePursuitControllerBase):
+    def __init__(
+        self,
+        l: float,
+        L: float,
+        path: SplinePath = None,
+        goal_tol: float = 1.0,
+        pursuit_point_fig=None,
+    ):
+        """
+        Create pure-pursuit controller object
+
+        Input arguments:
+          l -- Prediction horizon
+          L -- wheel-base
+          path -- SplinePath-object with the path to follow
+          goal_tol -- Goal stopping tolerance (default: 1)
+          pursuit_point_fig -- Figure object to illustrate pursuit-point selection (default: None)
+        """
+        super().__init__(pursuit_point_fig)
+        self.plan = path
+        self.l = l
+        self.L = L
+        self.goal_tol = goal_tol
+        self.last_index = 0
+
+    def pursuit_point(self, p_car):
+        """Return pure-pursuit given the position of the car.
+
+        Input:
+          p_car - Car position in global coordinates
+
+        Return:
+          pursuit point in global coordinates
+        """
+        # p_car - position of vehicle
+
+        path_points = self.plan.path  # Points on the path
+        l = self.l  # Pure-pursuit look-ahead
+        # Your code here
+        for i in range(self.last_index, len(path_points)):
+            if abs(np.linalg.norm(path_points[i] - p_car)) >= l:
+                p_purepursuit = path_points[i]
+                print("Pursuit point index:", p_purepursuit)
+                self.last_index = i
+                
+                return p_purepursuit
+
+        return path_points[-1]
+                
+        # Hint: It is typically not important to find a point at _exactly_ distance l,
+        #       for example search pure-pursuit point among the points in path_points
+        #       but don't forget to take into account the approximate pursuit-horizon when
+        #       computing the steering angle.
+
+
+    def pure_pursuit_control(self, dp, theta):
+        """Compute pure-pursuit steer angle.
+
+        Input:
+          dp - Vector from position of car to pursuit point
+          theta - heading of vehicle
+
+        Output:
+          return steer angle
+        """
+
+        # Your code here to compute new steering angle
+        dx, dy = dp
+        x_local = np.cos(theta) * dx + np.sin(theta) * dy
+        y_local = -np.sin(theta) * dx + np.cos(theta) * dy
+
+        ld2 = x_local**2 + y_local**2
+
+        tandelta = 2 * self.L * y_local / ld2
+        delta = np.arctan(tandelta)
+        return delta
+
+    def u(self, t, w):
+        """Compute control action
+
+        Input:
+          t - current time
+          w - current state w = (x, y, theta, v)
+
+        Output:
+          return (delta, acc) where delta is steer angle and acc acceleration
+        """
+        x, y, theta, v = w
+        p_car = np.array([x, y])
+
+        # Your code here to compute steering angle, use the functions
+        # self.pursuit_point() and self.pure_pursuit_control() you
+        # have written above.
+        p_purepursuit = self.pursuit_point(p_car)
+        dp = p_purepursuit - p_car
+        delta = self.pure_pursuit_control(dp, theta)
+        acc = 0  # Constant speed
+
+        self._pursuit_plot(p_car, p_purepursuit)  # Included for animation purposes.
+
+        return np.array([delta, acc])
+
+    def run(self, t, w):
+        # Function that returns true until goal is reached
+        p_goal = self.plan.path[-1, :]
+        p_car = w[0:2]
+        dp = p_car - p_goal
+        dist = dp.dot(dp)
+
+        return dist > self.goal_tol**2
+
+
+# %%# Assertions
+# test = PurePursuitController(l=4, L=2, path=nom_path, goal_tol=0.25)
+# test.pursuit_point(np.array([0, 0]))
+# A few tests on your implementation. Note that passing these tests doesn't imply that your solution is correct but do not submit a solution if your solution doesn't pass these tests. First, test the ```pure_pursuit_control``` function
+
+pp_controller = PurePursuitController(l=4, L=car.L, path=nom_path, goal_tol=0.25)
+print(abs(pp_controller.pure_pursuit_control(np.array([1.0, 1.0]), 10 * np.pi / 180) - 1.01840))
+
+assert (
+    abs(pp_controller.pure_pursuit_control(np.array([1.0, 1.0]), 10 * np.pi / 180) - 1.01840) < 1e-3
+)
+assert (
+    abs(pp_controller.pure_pursuit_control(np.array([1.0, 1.0]), 30 * np.pi / 180) - 0.6319) < 1e-3
+)
+assert (
+    abs(pp_controller.pure_pursuit_control(np.array([1.0, 1.0]), -30 * np.pi / 180) - 1.2199) < 1e-3
+)
+
+
+# To ensure that the pursuit-point selection works, run a simulation with pure-pursuit illustration turned on. Requires plotting in external window.
+
+s = np.linspace(0, nom_path.length, 200)
+fig, ax = plt.subplots(num=99, clear=True)
+ax.plot(nom_path.x(s), nom_path.y(s), "b", lw=0.5)
+ax.plot(nom_path.path[:, 0], nom_path.path[:, 1], "rx", markersize=3)
+
+car = SingleTrackModel()
+car.controller = PurePursuitController(
+    l=4, L=car.L, path=nom_path, goal_tol=0.25, pursuit_point_fig=fig
+)
+
+w0 = [0, 1, np.pi / 2 * 0.9, 2]
+z_pp = car.simulate(w0, T=80, dt=0.1, t0=0.0)
+
+
+# %%# Simulate controller
+
+# Simulate controller without visualization
+
+car = SingleTrackModel()
+pp_controller = PurePursuitController(l=4, L=car.L, path=nom_path)
+car.controller = pp_controller
+
+w0 = [0, 1, np.pi / 2 * 0.9, 2]  # Sample starting state
+z_pp = car.simulate(w0, T=80, dt=0.1, t0=0.0)
+
+
+# %% State feedback controller based on the linearized path
+
+# Implement linear and non-linear state feedback control.
+
+
+class StateFeedbackController(ControllerBase):
+    def __init__(self, K: float, L: float, path: SplinePath = None, goal_tol: float = 1.0):
+        super().__init__()
+        self.plan = path
+        self.K = K
+        self.goal_tol = goal_tol
+        self.d = []
+        self.L = L
+        self.s0 = 0
+
+    def heading_error(self, theta, s):
+        """Compute theta error
+        Inputs
+            theta - current heading angle
+            s - projection point on path
+
+        Outputs
+            theta_e - heading error angle
+        """
+
+        # YOUR CODE HERE
+        tan,normal = self.plan.heading(s)
+        theta_path = np.arctan2(tan[1], tan[0])
+        theta_e = theta - theta_path
+        theta_e = np.arctan2(np.sin(theta_e), np.cos(theta_e))
+        #print(theta_e)
+        return theta_e
+
+    def u(self, t, w):
+        x, y, theta, v = w
+        p_car = w[0:2]
+        u0 = 0  # Nominal control input
+        
+        # Compute d and theta_e errors. Use the SplinePath method project
+        # and the obj.heading_error() function you've written above
+
+        # YOUR CODE HERE
+        theta_e = self.heading_error(theta, self.s0)
+        si, dk = self.plan.project(p_car, self.s0)
+        self.d.append(dk)
+        self.s0 = si    
+        #print("theta_e" ,theta_e)
+        u = u0 - self.K * dk - self.K*theta_e  # state feedback control law
+       # print("u:", u)
+        acc = 0  # Constant speed
+        delta = np.arctan(self.L * u) # Steering angle = Arctan(L*u)
+         
+        
+        # print("delta :", delta)
+        # print("acc:" , acc)
+        return np.array([delta, acc])
+
+
+    def run(self, t, w):
+        p_goal = self.plan.path[-1, :]
+        p_car = w[0:2]
+        dp = p_car - p_goal
+        dist = np.sqrt(dp.dot(dp))
+
+        return dist > self.goal_tol**2
+
+
+
+# %% Simulate state feedback controller
+
+
+plt.ion()  # mode interactif
+
+s = np.linspace(0, nom_path.length, 200)
+fig, ax = plt.subplots(num=98, clear=True)
+ax.plot(nom_path.x(s), nom_path.y(s), "b", lw=0.5)
+ax.plot(nom_path.path[:, 0], nom_path.path[:, 1], "rx", markersize=3)
+ax.set_aspect('equal', 'box')
+
+car = SingleTrackModel()
+car.controller = StateFeedbackController(
+    K=0.5, L=car.L, path=nom_path, goal_tol=0.7
+)
+
+w0 = np.array([0.0, 1.0, np.pi / 2 * 0.9, 2.0])
+w1 = np.array([-5.0, 10.0, np.pi / 2 * 0.9, 2.0]) # for exercise 5.7
+
+w = w1 # so that you can test both initial conditions
+car.set_state(w, t0=0.0)
+
+dt = 0.1
+T = 80.0
+
+traj_x = [w[0]]
+traj_y = [w[1]]
+
+# handle plot objects (plus efficace que replot à chaque fois)
+(line_traj,) = ax.plot(traj_x, traj_y, "r-")
+(point_car,) = ax.plot(w[0], w[1], "ro")
+
+fig.canvas.draw()
+fig.canvas.flush_events()
+
+# boucle d'intégration + affichage
+while car.t < T and car.controller.run(car.t, car.w):
+    # calculer la commande au temps courant
+    u = car.controller.u_timed(car.t, car.w)
+    car._u = u                       # l'intégrateur lit self._u dans dx
+    car.simulate_step(car.t + dt)    # intégrer jusqu'à t+dt (Tend est absolu)
+
+    t, w = car.get_state()
+    traj_x.append(w[0]); traj_y.append(w[1])
+
+    line_traj.set_data(traj_x, traj_y)
+    point_car.set_data([w[0]], [w[1]])
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+
+# %% non linear state feed back controller
+
+
+class NonLinearStateFeedbackController(ControllerBase):
+    def __init__(self, K: float, L: float, path: SplinePath = None, goal_tol: float = 1.0):
+        super().__init__()
+        self.plan = path
+        self.K = K
+        self.goal_tol = goal_tol
+        self.d = []
+        self.L = L
+        self.s0 = 0
+
+    def heading_error(self, theta, s):
+        """Compute theta error
+        Inputs
+            theta - current heading angle
+            s - projection point on path
+
+        Outputs
+            theta_e - heading error angle
+        """
+
+        # YOUR CODE HERE
+        tan,normal = self.plan.heading(s)
+        theta_path = np.arctan2(tan[1], tan[0])
+        theta_e = theta - theta_path
+        theta_e = np.arctan2(np.sin(theta_e), np.cos(theta_e))
+        #print(theta_e)
+        return theta_e
+
+    def u(self, t, w):
+        x, y, theta, v = w
+        p_car = w[0:2]
+        u0 = 0  # Nominal control input
+        
+        # Compute d and theta_e errors. Use the SplinePath method project
+        # and the obj.heading_error() function you've written above
+
+        # YOUR CODE HERE
+        theta_e = self.heading_error(theta, self.s0)
+        si, dk = self.plan.project(p_car, self.s0)
+        self.d.append(dk)
+        self.s0 = si    
+        #print("theta_e" ,theta_e)
+        u = u0 - self.K * (np.sin(theta_e)/theta_e) * dk - self.K*theta_e  # state feedback control law
+       # print("u:", u)
+        acc = 0  # Constant speed
+        delta = np.arctan(self.L * u) # Steering angle = Arctan(L*u)
+         
+        
+        # print("delta :", delta)
+        # print("acc:" , acc)
+        return np.array([delta, acc])
+
+
+    def run(self, t, w):
+        p_goal = self.plan.path[-1, :]
+        p_car = w[0:2]
+        dp = p_car - p_goal
+        dist = np.sqrt(dp.dot(dp))
+
+        return dist > self.goal_tol**2
+
+
+# %% Simulate non linear state feedback controller
+
+plt.ion()  # mode interactif
+
+s = np.linspace(0, nom_path.length, 200)
+fig, ax = plt.subplots(num=98, clear=True)
+ax.plot(nom_path.x(s), nom_path.y(s), "b", lw=0.5)
+ax.plot(nom_path.path[:, 0], nom_path.path[:, 1], "rx", markersize=3)
+ax.set_aspect('equal', 'box')
+
+car = SingleTrackModel()
+car.controller = NonLinearStateFeedbackController(
+    K=0.5, L=car.L, path=nom_path, goal_tol=0.7
+)
+
+w0 = np.array([0.0, 1.0, np.pi / 2 * 0.9, 2.0])
+w1 = np.array([-5.0, 10.0, np.pi / 2 * 0.9, 2.0]) # for exercise 5.7
+
+w = w1 # so that you can test both initial conditions
+car.set_state(w, t0=0.0)
+
+dt = 0.1
+T = 80.0
+
+traj_x = [w[0]]
+traj_y = [w[1]]
+
+# handle plot objects (plus efficace que replot à chaque fois)
+(line_traj,) = ax.plot(traj_x, traj_y, "r-")
+(point_car,) = ax.plot(w[0], w[1], "ro")
+
+fig.canvas.draw()
+fig.canvas.flush_events()
+
+# boucle d'intégration + affichage
+while car.t < T and car.controller.run(car.t, car.w):
+    # calculer la commande au temps courant
+    u = car.controller.u_timed(car.t, car.w)
+    car._u = u                       # l'intégrateur lit self._u dans dx
+    car.simulate_step(car.t + dt)    # intégrer jusqu'à t+dt (Tend est absolu)
+
+    t, w = car.get_state()
+    traj_x.append(w[0]); traj_y.append(w[1])
+
+    line_traj.set_data(traj_x, traj_y)
+    point_car.set_data([w[0]], [w[1]])
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+# %%
+plt.show()
