@@ -1,0 +1,15 @@
+for 1 Batch :
+
+Constant velocity:: ADE: 2.21 m | FDE: 5.64 m | Miss Rate: 0.55
+ML model, no map :: ADE: 1.49 m | FDE: 3.96 m | Miss Rate: 0.48
+ML model, map    :: ADE: 1.36 m | FDE: 3.71 m | Miss Rate: 0.53
+ML model, GAT map:: ADE: 1.27 m | FDE: 3.41 m | Miss Rate: 0.46
+
+
+
+for whole training (5m30):
+
+Constant velocity:: ADE: 1.89 m | FDE: 4.99 m | Miss Rate: 0.51
+ML model, no map :: ADE: 1.20 m | FDE: 3.30 m | Miss Rate: 0.46
+ML model, map    :: ADE: 1.09 m | FDE: 2.96 m | Miss Rate: 0.44
+ML model, GAT map:: ADE: 1.05 m | FDE: 2.86 m | Miss Rate: 0.43
